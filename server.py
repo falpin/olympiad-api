@@ -440,5 +440,4 @@ def reset_password():
     logging.info(f"Password reset for user {user['name']}")
     return jsonify({'message': 'Password reset successful'}), 200
 
-if __name__ == '__main__':
-    app.run(debug=True)
+# app.run(debug=True)
