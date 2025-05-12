@@ -18,11 +18,8 @@ app.config['MAIL_PASSWORD'] = 'your-email-password'
 mail = Mail(app)
 
 # Логирование
-try:
-    import logging
-    logging.basicConfig(filename='app.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-except:
-    print("Не удалось подключить логи")
+import logging
+logging.basicConfig(filename='app.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def get_db_connection():
     conn = sqlite3.connect('database.db')
