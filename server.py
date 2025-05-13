@@ -5,8 +5,10 @@ import secrets
 from datetime import datetime
 import re
 from flask_mail import Mail, Message
+from flask_cors import CORS 
 
 app = Flask(__name__)
+CORS(app)
 bcrypt = Bcrypt(app)
 
 # Настройка Flask-Mail
