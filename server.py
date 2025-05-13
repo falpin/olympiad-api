@@ -130,7 +130,7 @@ def register():
     conn.commit()
     conn.close()
     logging.info(f"User {name} registered with email {email}")
-    return jsonify({'message': 'User created', 'token': token}), 201
+    return jsonify({'token': token}, 'name': name), 201
 
 @app.route('/api/login', methods=['POST'], endpoint='login')
 def login():
@@ -148,7 +148,7 @@ def login():
         return jsonify({'message': 'Invalid email or password'}), 401
 
     logging.info(f"User {user['name']} logged in")
-    return jsonify({'token': user['token']}), 200
+    return jsonify({'token': user['token']}, 'name': user['name']), 200
 
 @app.route('/api/courses', methods=['POST'], endpoint='create_course')
 @token_required
