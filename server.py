@@ -22,7 +22,7 @@ import logging
 logging.basicConfig(filename='app.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def get_db_connection():
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect("/var/lib/olympiad-api/db/database.db")
     conn.row_factory = sqlite3.Row
     return conn
 

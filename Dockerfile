@@ -2,8 +2,6 @@ FROM python:3.9
 
 WORKDIR /var/www/olympiad-api.falpin.ru
 
-VOLUME /var/www/olympiad-api.falpin.ru
-
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
