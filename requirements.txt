@@ -6,3 +6,4 @@ pytz
 flask_jwt_extended
 werkzeug
 dotenv
+bcrypt
