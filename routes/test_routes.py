@@ -6,11 +6,21 @@ import sqlite3
 from werkzeug.utils import secure_filename
 import os
 from config import UPLOAD_FOLDER, ALLOWED_EXTENSIONS
+import ast
+import re
 
 # Вспомогательные функции
 def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def normalize_string(text):
+    if text is None:
+        return ""
+    text = str(text).lower()
+    text = re.sub(r'[^\w]', '', text)
+    return text
+
 
 def save_question_image(file):
     if file and allowed_file(file.filename):
@@ -386,6 +396,7 @@ def submit_test(result_id):
         ''', (result_id,), fetch="all")
 
         data = {"answers":user_answers}
+
         
         # Проверяем, что результат существует и принадлежит текущему пользователю
         result = SQL_request('''
@@ -403,53 +414,45 @@ def submit_test(result_id):
                    GROUP_CONCAT(a.id) as correct_answers
             FROM questions q
             JOIN test_questions tq ON q.id = tq.question_id
-            JOIN answers a ON a.question_id = q.id AND a.is_correct = 1
-            WHERE tq.test_id = ?
+            LEFT JOIN answers a ON a.question_id = q.id AND a.is_correct = 1
+            WHERE tq.test_id = (SELECT test_id FROM test_results WHERE id = ?)
             GROUP BY q.id
-        ''', (result['test_id'],), fetch="all")
+        ''', (result_id,), fetch="all")
         
         # Проверяем ответы пользователя
         total_score = 0
         user_answers = data.get('answers', [])
-        
+
         for question in questions:
             question_id = question['id']
             user_answer = next((a for a in user_answers if a['question_id'] == question_id), None)
+            if user_answer is None:
+                continue
 
-            SQL_request('''
-                DELETE FROM user_answers 
-                WHERE result_id = ? AND is_olympiad = 0
-            ''', (result_id,))
-            
-            if not user_answer:
-                continue
-            
+
             if question['type'] == 'text':
-                # Для текстовых ответов пока не оцениваем
-                SQL_request('''
-                    UPDATE user_answers
-                    SET answer_text = ?, is_olympiad = 0
-                    WHERE result_id = ? AND question_id = ?
-                ''', (user_answer.get('answer_text', ''), result_id, question_id))
-                continue
-            
-            correct_answers = set(question['correct_answers'].split(','))
-            user_selected = set(map(str, user_answer.get('answer_ids', [])))
-            
-            # Сохраняем ответ пользователя
-            SQL_request('''
-                UPDATE user_answers
-                SET answer_ids = ?, is_olympiad = 0
-                WHERE result_id = ? AND question_id = ?
-            ''', (json.dumps(user_answer.get('answer_ids', [])), result_id, question_id))
-            
+                answer_text = user_answer["answer_text"]
+                correct_answers = SQL_request("SELECT content FROM answers WHERE question_id = ? AND is_correct = 1", (question_id,))['content']
+                correct_answers_normalized = normalize_string(correct_answers)
+                answer_text_normalized = normalize_string(answer_text)
+                if correct_answers_normalized == answer_text_normalized:
+                    total_score += question['points']
+                    continue
+
+            correct_answers = (question['correct_answers'])
+                        
             # Проверяем правильность ответа
             if question['type'] == 'single':
-                if user_selected and user_selected.issubset(correct_answers):
+                user_selected = ast.literal_eval(user_answer["answer_ids"])
+                if user_selected and int(user_selected[0]) == int(correct_answers):
                     total_score += question['points']
             elif question['type'] == 'multiple':
-                if user_selected == correct_answers:
+                correct_answers = [int(num.strip()) for num in correct_answers.split(",")]
+                user_selected = ast.literal_eval(user_answer["answer_ids"])
+                is_correct = sorted(correct_answers) == sorted(user_selected)
+                if is_correct:
                     total_score += question['points']
+
         # Получаем систему оценивания
         grading_system = SQL_request('''
             SELECT grading_system FROM tests WHERE id = ?
