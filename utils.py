@@ -14,7 +14,7 @@ from config import SECRET_KEY, JWT_ACCESS_EXPIRES_HOURS, ALLOWED_API_KEYS
 
 formatter = logging.Formatter('%(levelname)s [%(asctime)s]   %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 try:
-    file_handler = RotatingFileHandler('/var/log/gamesense-api/api.log', maxBytes=5*1024*1024, backupCount=3, encoding='utf-8')
+    file_handler = RotatingFileHandler('/var/log/olympiad/api.log', maxBytes=5*1024*1024, backupCount=3, encoding='utf-8')
 except:
     file_handler = RotatingFileHandler('api.log', maxBytes=5*1024*1024, backupCount=3, encoding='utf-8')
 file_handler.setFormatter(formatter)
