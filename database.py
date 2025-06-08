@@ -261,7 +261,4 @@ def create_test(title: str, description: str, creator_id: int, grading_system: d
         "INSERT INTO tests (title, description, creator_id, grading_system) VALUES (?, ?, ?, ?)",
         (title, description, creator_id, json.dumps(grading_system)))
 
-# Инициализация базы данных
-if __name__ == "__main__":
-    create_tables()
-    print("Database initialized successfully!")
+create_tables()
