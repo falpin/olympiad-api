@@ -22,7 +22,7 @@ if not audit_logger.handlers:
     audit_logger.addHandler(audit_handler)
 
 
-def auth_decorator(role='user', check_self=True):
+def auth_decorator(role='student', check_self=True):
     """
     Универсальный декоратор для аутентификации и авторизации.
     
@@ -43,11 +43,11 @@ def auth_decorator(role='user', check_self=True):
 
                 # Проверка роли
                 if role:
-                    user_role = payload.get('role', 'user')
+                    user_role = payload.get('role', 'student')
                     allowed_roles = {
                         'admin': ['admin'],
                         'teacher': ['admin', 'teacher'],
-                        'user': ['admin', 'developer', 'user']
+                        'student': ['admin', 'developer', 'student']
                     }
 
                     if user_role not in allowed_roles.get(role, []):
