@@ -95,15 +95,12 @@ def login():
         if not user:
             return jsonify({"error": "Неверные учетные данные или пользователь не подтвержден"}), 401
         
-        # Проверка пароля
-        # Преобразуем хешированный пароль из строки в байты
-        hashed_password = user['password'].strip().encode('utf-8')  # .strip() убирает пробелы и \n
-        print("Хеш из базы:", user['password'])  # Должно быть $2b$12$...
-        print("Длина хеша:", len(user['password']))  # Должно быть ~60 символов
         if user["login"] == "admin":
             pass
-        elif not bcrypt.checkpw(data['password'].encode('utf-8'), hashed_password):
-            return jsonify({"error": "Неверные учетные данные"}), 401
+        else:
+            hashed_password = user['password'].strip().encode('utf-8')  # .strip() убирает пробелы и \n
+            if not bcrypt.checkpw(data['password'].encode('utf-8'), hashed_password):
+                return jsonify({"error": "Неверные учетные данные"}), 401
         
         # Генерация JWT токена
         payload = {
