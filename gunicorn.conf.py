@@ -12,8 +12,8 @@ errorlog = "-"
 loglevel = "info"
 
 # Безопасность
-user = "www-data"
-group = "www-data"
+user = "root"
+group = "root"
 umask = 0o007
 
 raw_env = [
