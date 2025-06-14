@@ -7,7 +7,6 @@ import secrets
 from mail import send_email
 import json
 from datetime import datetime, timedelta
-import secrets
 import string
 import jwt
 from config import SECRET_KEY, JWT_ACCESS_EXPIRES_HOURS, ALLOWED_API_KEYS
