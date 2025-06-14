@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   web:
     build:
@@ -7,12 +5,14 @@ services:
       args:
         - SERVICE_NAME=${SERVICE_NAME}
         - CONTAINER_PORT=${CONTAINER_PORT}
+        - MAIN_DOMAIN=${MAIN_DOMAIN}
     container_name: ${CONTAINER_NAME}
     image: ${IMAGE_NAME}
     ports:
-      - "${HOST_PORT}:${CONTAINER_PORT}"
+      - "${HOST_IP}:${HOST_PORT}:${CONTAINER_PORT}"
     restart: unless-stopped
     environment:
       - FLASK_ENV=production
+      - CONTAINER_PORT=${CONTAINER_PORT}
     env_file:
       - .prod.env
