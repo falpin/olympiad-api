@@ -1,4 +1,6 @@
-bind = "0.0.0.0:5000"
+import os
+
+bind = f"0.0.0.0:{os.getenv('CONTAINER_PORT', '5000')}"
 workers = 4
 worker_class = "sync"
 timeout = 30

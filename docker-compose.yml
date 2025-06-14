@@ -2,9 +2,17 @@ version: '3.8'
 
 services:
   web:
-    build: .
+    build:
+      context: .
+      args:
+        - SERVICE_NAME=${SERVICE_NAME}
+        - CONTAINER_PORT=${CONTAINER_PORT}
+    container_name: ${CONTAINER_NAME}
+    image: ${IMAGE_NAME}
     ports:
-      - "5000:5000"
+      - "${HOST_PORT}:${CONTAINER_PORT}"
     restart: unless-stopped
     environment:
       - FLASK_ENV=production
+    env_file:
+      - .prod.env
