@@ -18,3 +18,4 @@ services:
       - .prod.env
     volumes:
       - /var/lib/olympiad-api/db:/var/lib/olympiad-api/db
+      - /var/log/olympiad:/var/log/olympiad 
