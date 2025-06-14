@@ -16,3 +16,8 @@ services:
       - CONTAINER_PORT=${CONTAINER_PORT}
     env_file:
       - .prod.env
+    volumes:
+      - olympiad_db_data:/var/lib/olympiad-api/db
+
+volumes:
+  olympiad_db_data:
