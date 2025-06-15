@@ -196,7 +196,7 @@ def update_profile():
 def get_users():
     try:
         users = SQL_request(
-            "SELECT id, first_name, last_name, email, role, is_approved FROM users",
+            "SELECT * FROM users",
             fetch="all",
         )
         
