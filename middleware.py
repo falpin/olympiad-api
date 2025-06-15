@@ -16,7 +16,10 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 
 # Проверяем, существует ли уже обработчик, чтобы не дублировать
 if not audit_logger.handlers:
-    audit_handler = RotatingFileHandler('/var/log/olympiad/audit.log', maxBytes=5 * 1024 * 1024, backupCount=3, encoding='utf-8')
+    try:
+        audit_handler = RotatingFileHandler('/var/log/olympiad/audit.log', maxBytes=5 * 1024 * 1024, backupCount=3, encoding='utf-8')
+    except:
+        audit_handler = RotatingFileHandler('audit.log', maxBytes=5 * 1024 * 1024, backupCount=3, encoding='utf-8')
     audit_formatter = logging.Formatter('%(levelname)s [%(asctime)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
     audit_handler.setFormatter(audit_formatter)
     audit_logger.addHandler(audit_handler)

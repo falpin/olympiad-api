@@ -32,6 +32,34 @@ def get_olympiads():
         logger.error(f"Ошибка получения списка олимпиад: {str(e)}")
         return jsonify({"error": "Внутренняя ошибка сервера"}), 500
 
+
+# Получение олимпиды
+@api.route('/olympiads/<int:olympiad_id>', methods=['GET'])
+@auth_decorator()
+def get_olympiad(olympiad_id):
+    try:
+        # Для студентов: только доступные олимпиады
+        # Для преподавателей: все олимпиады
+        now = datetime.utcnow().isoformat()
+        
+        if g.user and g.user['role'] in ['teacher', 'admin']:
+            olympiads = SQL_request(
+                "SELECT * FROM olympiads WHERE id = ?", (olympiad_id,),
+                fetch="one"
+            )
+        else:
+            olympiads = SQL_request(
+                "SELECT * FROM olympiads WHERE start_time <= ? AND end_time >= ? and id",
+                (now, now, olympiad_id),
+                fetch="one"
+            )
+        
+        return jsonify(olympiads), 200
+
+    except Exception as e:
+        logger.error(f"Ошибка получения списка олимпиад: {str(e)}")
+        return jsonify({"error": "Внутренняя ошибка сервера"}), 500
+
 @api.route('/olympiads', methods=['POST'])
 @auth_decorator('teacher')
 def create_olympiad():
@@ -43,7 +71,7 @@ def create_olympiad():
             return jsonify({"error": "Необходимы название и система оценивания"}), 400
         
         # Создание олимпиадаа
-        test_id = SQL_request('''
+        olympiad_id = SQL_request('''
             INSERT INTO olympiads (title, description, creator_id, grading_system, start_time, end_time, duration)
             VALUES (?, ?, ?, ?, ?, ?, ?)
             RETURNING id
@@ -57,8 +85,8 @@ def create_olympiad():
             data.get('duration')
         ), fetch="one")["id"]
         
-        logger.info(f"Создана новая олимпиада ID {test_id} пользователем {g.user['id']}")
-        return jsonify({"message": "олимпиада создана", "test_id": test_id}), 201
+        logger.info(f"Создана новая олимпиада ID {olympiad_id} пользователем {g.user['id']}")
+        return jsonify({"message": "олимпиада создана", "olympiad_id": olympiad_id}), 201
     except Exception as e:
         logger.error(f"Ошибка создания олимпиадаа: {str(e)}")
         return jsonify({"error": "Внутренняя ошибка сервера"}), 500
@@ -66,7 +94,7 @@ def create_olympiad():
 
 # Начало прохождения олимпиады
 @api.route('/olympiads/<int:olympiad_id>/start', methods=['POST'])
-@auth_decorator(role='student')
+@auth_decorator()
 def start_olympiad(olympiad_id):
     try:
         # Проверка доступности олимпиады
@@ -79,13 +107,14 @@ def start_olympiad(olympiad_id):
             return jsonify({"error": "Олимпиада не найдена"}), 404
         
         now = datetime.utcnow()
-        start_time = datetime.fromisoformat(olympiad['start_time'])
-        end_time = datetime.fromisoformat(olympiad['end_time'])
+        start_time = datetime.strptime(olympiad['start_time'], '%d-%m-%Y %H:%M')
+        end_time = datetime.strptime(olympiad['end_time'], '%d-%m-%Y %H:%M')
         
         if now < start_time:
             return jsonify({"error": "Олимпиада еще не началась"}), 403
         if now > end_time:
             return jsonify({"error": "Олимпиада уже завершилась"}), 403
+
         
         # Проверка, что пользователь еще не начал олимпиаду
         existing_result = SQL_request(
@@ -98,9 +127,15 @@ def start_olympiad(olympiad_id):
         
         # Расчет времени окончания
         end_time = now + timedelta(minutes=olympiad['duration'])
-        if end_time > datetime.fromisoformat(olympiad['end_time']):
-            end_time = datetime.fromisoformat(olympiad['end_time'])
-        
+        if end_time > datetime.strptime(olympiad['end_time'], '%d-%m-%Y %H:%M'):
+            end_time = datetime.strptime(olympiad['end_time'], '%d-%m-%Y %H:%M')
+
+        rr = SQL_request(
+                    "SELECT SUM(points) FROM questions q JOIN olympiad_questions oq ON q.id = oq.question_id WHERE oq.olympiad_id = ?",
+                    (olympiad_id,),
+                    fetch="one"
+                )['SUM(points)']
+        print(rr)
         # Созданиеие записи о прохождении
         result_id = SQL_request(
             '''INSERT INTO olympiad_results 
@@ -116,10 +151,10 @@ def start_olympiad(olympiad_id):
                     "SELECT SUM(points) FROM questions q JOIN olympiad_questions oq ON q.id = oq.question_id WHERE oq.olympiad_id = ?",
                     (olympiad_id,),
                     fetch="one"
-                )[0] or 0
+                )['SUM(points)']
             ),
             fetch="one"
-        )[0]
+        )
         
         logger.info(f"Пользователь {g.user['id']} начал олимпиаду {olympiad_id}")
         return jsonify({
@@ -129,7 +164,7 @@ def start_olympiad(olympiad_id):
         }), 200
 
     except Exception as e:
-        logger.error(f"Ошибка начала олимпиады: {str(e)}")
+        print(f"Ошибка начала олимпиады: {str(e)}")
         return jsonify({"error": "Внутренняя ошибка сервера"}), 500
 
 # Отправка ответа на вопрос олимпиады
@@ -154,7 +189,6 @@ def submit_olympiad_answer():
         # Проверка времени
         if datetime.utcnow() > datetime.fromisoformat(result['end_time']):
             return jsonify({"error": "Время на прохождение олимпиады истекло"}), 403
-        
         # Сохранение ответа
         SQL_request(
             '''INSERT OR REPLACE INTO user_answers 
@@ -162,7 +196,7 @@ def submit_olympiad_answer():
             VALUES (?, ?, ?, ?, 1)''',
             (
                 data['result_id'],
-                data['question_id'],
+                data['questi on_id'],
                 json.dumps(data['answer'].get('answer_ids')) if 'answer_ids' in data['answer'] else None,
                 data['answer'].get('answer_text')
             )
@@ -172,7 +206,7 @@ def submit_olympiad_answer():
         return jsonify({"message": "Ответ сохранен"}), 200
 
     except Exception as e:
-        logger.error(f"Ошибка сохранения ответа: {str(e)}")
+        print(f"Ошибка сохранения ответа: {str(e)}")
         return jsonify({"error": "Внутренняя ошибка сервера"}), 500
 
 # Завершение олимпиады
@@ -203,7 +237,7 @@ def review_olympiad(result_id):
             return jsonify({"error": "Не указаны баллы за ответы"}), 400
         
         # Проверка прав доступа
-        result = SQL_request(
+        olymoiad = SQL_request(
             '''SELECT o.*, o.creator_id 
             FROM olympiad_results r 
             JOIN olympiads o ON r.olympiad_id = o.id 
@@ -211,30 +245,27 @@ def review_olympiad(result_id):
             (result_id,),
             fetch="one"
         )
+
+        result = SQL_request("SELECT * FROM olympiad_results WHERE id = ?", (result_id,))
         if not result:
             return jsonify({"error": "Результат не найден"}), 404
         
-        if result['creator_id'] != g.user['id'] and g.user['role'] != 'admin':
+        if olymoiad['creator_id'] != g.user['id'] and g.user['role'] != 'admin':
             return jsonify({"error": "Нет прав на проверку этой олимпиады"}), 403
         
-        total_score = 0
-        for question_id, score in data['scores'].items():
-            # Обновление баллов за каждый вопрос
-            SQL_request(
-                "UPDATE user_answers SET score = ? WHERE result_id = ? AND question_id = ? AND is_olympiad = 1",
-                (score, result_id, question_id)
-            )
-            total_score += score
+        total_score = data['scores']
+
+        if data['scores'] > total_score:
+            return jsonify({"error": "Превышено количество баллов"}), 400
         
         # Расчет оценки
-        grading_system = json.loads(result['grading_system'])
+        grading_system = (olymoiad['grading_system'])
         percentage = (total_score / result['total_score']) * 100
-        grade = "не оценено"
-        for g_range, g_value in sorted(grading_system.items(), key=lambda x: float(x[0]), reverse=True):
-            if percentage >= float(g_range):
-                grade = g_value
+        grade = None
+        for g_grade, g_percent in sorted(grading_system.items(), key=lambda x: x[1], reverse=True):
+            if percentage >= g_percent:
+                grade = g_grade
                 break
-        
         # Обновление общего результата
         SQL_request(
             "UPDATE olympiad_results SET score = ?, grade = ?, is_checked = 1 WHERE id = ?",
@@ -245,7 +276,7 @@ def review_olympiad(result_id):
         return jsonify({"message": "Олимпиада проверена", "total_score": total_score, "grade": grade}), 200
 
     except Exception as e:
-        logger.error(f"Ошибка проверки олимпиады: {str(e)}")
+        print(f"Ошибка проверки олимпиады: {str(e)}")
         return jsonify({"error": "Внутренняя ошибка сервера"}), 500
 
 
