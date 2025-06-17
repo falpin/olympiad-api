@@ -555,3 +555,26 @@ def add_olympiad_to_favorite(olympiad_id):
     except Exception as e:
         logger.error(f"Ошибка добавления в избранное: {str(e)}")
         return jsonify({"error": "Внутренняя ошибка сервера"}), 500
+
+@api.route('/users/<int:user_id>/olympiads', methods=['GET'])
+@auth_decorator()
+def get_user_olympiad_results(user_id):
+    try:
+        # Проверка прав доступа
+        if g.user['id'] != user_id and g.user['role'] != 'teacher':
+            return jsonify({"error": "Доступ запрещен"}), 403
+        
+        results = SQL_request('''
+            SELECT r.id, r.olympiad_id, r.start_time, r.end_time,
+                   r.score, r.total_score, r.grade,
+                   o.title as olympiad_title
+            FROM olympiad_results r
+            JOIN olympiads o ON r.olympiad_id = o.id
+            WHERE r.user_id = ?
+            ORDER BY r.end_time DESC
+        ''', (user_id,), fetch="all")
+        
+        return jsonify(results), 200
+    except Exception as e:
+        logger.error(f"Ошибка получения результатов олимпиад пользователя {user_id}: {str(e)}")
+        return jsonify({"error": "Внутренняя ошибка сервера"}), 500
