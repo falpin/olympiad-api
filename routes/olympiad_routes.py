@@ -160,7 +160,23 @@ def create_olympiad():
         if not data.get('title') or not data.get('grading_system'):
             return jsonify({"error": "Необходимы название и система оценивания"}), 400
         
-        # Создание олимпиадаа
+        # Функция для преобразования формата времени
+        def format_datetime(dt_str):
+            if not dt_str:
+                return None
+            try:
+                # Парсим дату из ISO формата
+                dt = datetime.fromisoformat(dt_str.replace('Z', '+00:00'))
+                # Форматируем в нужный вид: DD-MM-YYYY HH:MM
+                return dt.strftime('%d-%m-%Y %H:%M')
+            except ValueError:
+                return None
+        
+        # Преобразуем время
+        start_time = format_datetime(data.get('start_time'))
+        end_time = format_datetime(data.get('end_time'))
+        
+        # Создание олимпиады
         olympiad_id = SQL_request('''
             INSERT INTO olympiads (title, description, creator_id, grading_system, start_time, end_time, duration)
             VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -170,15 +186,15 @@ def create_olympiad():
             data.get('description', ''),
             g.user['id'],
             json.dumps(data['grading_system']),
-            data.get('start_time'),
-            data.get('end_time'),
+            start_time,
+            end_time,
             data.get('duration')
         ), fetch="one")["id"]
         
         logger.info(f"Создана новая олимпиада ID {olympiad_id} пользователем {g.user['id']}")
         return jsonify({"message": "олимпиада создана", "olympiad_id": olympiad_id}), 201
     except Exception as e:
-        logger.error(f"Ошибка создания олимпиадаа: {str(e)}")
+        logger.error(f"Ошибка создания олимпиады: {str(e)}")
         return jsonify({"error": "Внутренняя ошибка сервера"}), 500
 
 
