@@ -3,6 +3,7 @@ from database import SQL_request
 import json
 from datetime import datetime
 import re
+import ast
 
 def normalize_string(text):
     if text is None:
