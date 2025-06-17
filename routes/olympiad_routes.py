@@ -214,7 +214,7 @@ def start_olympiad(olympiad_id):
         )
 
         if existing_result:
-            return jsonify({"message": "Вы уже начали эту олимпиаду", "result_id":existing_result})
+            return jsonify({"message": "Вы уже начали эту олимпиаду", "result_id":existing_result}), 200
         
         # Расчет времени окончания
         end_time = now + timedelta(minutes=olympiad['duration'])
