@@ -128,10 +128,12 @@ def get_olympiad(olympiad_id):
         ''', (olympiad_id,), fetch="all")
         
         # Для каждого вопроса получаем варианты ответов
-        print(questions)
         for question in questions:
             answers = SQL_request('''
-                SELECT * FROM questions WHERE id = ?
+                SELECT id, content, is_correct
+                FROM answers
+                WHERE question_id = ?
+                ORDER BY id
             ''', (question['question_id'],), fetch="all")
             question['answers'] = answers
         
