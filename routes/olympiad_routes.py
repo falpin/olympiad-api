@@ -120,24 +120,19 @@ def get_olympiad(olympiad_id):
                 fetch="one"
             )
 
-            
-        # Получаем вопросы теста
+        if olympiads is None:
+            return jsonify({"error":"Олимпиада не найдена"}), 400
+        # Получаем вопросы олимпиады
         questions = SQL_request('''
-            SELECT q.id, q.content, q.type, q.points, q.image_id
-            FROM questions q
-            JOIN test_questions tq ON q.id = tq.question_id
-            WHERE tq.test_id = ?
-            ORDER BY tq.rowid
-        ''', (test_id,), fetch="all")
+            SELECT * FROM olympiad_questions WHERE olympiad_id = ?
+        ''', (olympiad_id,), fetch="all")
         
         # Для каждого вопроса получаем варианты ответов
+        print(questions)
         for question in questions:
             answers = SQL_request('''
-                SELECT id, content, is_correct
-                FROM answers
-                WHERE question_id = ?
-                ORDER BY id
-            ''', (question['id'],), fetch="all")
+                SELECT * FROM questions WHERE id = ?
+            ''', (question['question_id'],), fetch="all")
             question['answers'] = answers
         
         olympiads['questions'] = questions
@@ -145,7 +140,7 @@ def get_olympiad(olympiad_id):
         return jsonify(olympiads), 200
 
     except Exception as e:
-        logger.error(f"Ошибка получения списка олимпиад: {str(e)}")
+        print(f"Ошибка получения списка олимпиад: {str(e)}")
         return jsonify({"error": "Внутренняя ошибка сервера"}), 500
 
 @api.route('/olympiads', methods=['POST'])
