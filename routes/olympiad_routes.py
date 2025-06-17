@@ -286,7 +286,7 @@ def submit_olympiad_answer():
             VALUES (?, ?, ?, ?, 1)''',
             (
                 data['result_id'],
-                data['questi on_id'],
+                data['question_id'],
                 json.dumps(data['answer'].get('answer_ids')) if 'answer_ids' in data['answer'] else None,
                 data['answer'].get('answer_text')
             )
