@@ -115,7 +115,7 @@ def get_olympiad(olympiad_id):
             )
         else:
             olympiads = SQL_request(
-                "SELECT * FROM olympiads WHERE start_time <= ? AND end_time >= ? and id",
+                "SELECT * FROM olympiads WHERE start_time <= ? AND end_time >= ? and id = ?",
                 (now, now, olympiad_id),
                 fetch="one"
             )
