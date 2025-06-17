@@ -2,6 +2,14 @@ from .main_routes import *
 from database import SQL_request
 import json
 from datetime import datetime
+import re
+
+def normalize_string(text):
+    if text is None:
+        return ""
+    text = str(text).lower()
+    text = re.sub(r'[^\w]', '', text)
+    return text
 
 # Создание олимпиады
 
@@ -321,14 +329,107 @@ def submit_olympiad_answer():
 @auth_decorator(role='student')
 def finish_olympiad(result_id):
     try:
-        # Обновление времени завершения
-        SQL_request(
-            "UPDATE olympiad_results SET end_time = ? WHERE id = ? AND user_id = ?",
-            (datetime.utcnow().isoformat(), result_id, g.user['id'])
-        )
+        # Проверяем активную попытку олимпиады
+        active_attempt = SQL_request('''
+            SELECT id, olympiad_id, user_id 
+            FROM olympiad_results 
+            WHERE id = ? AND user_id = ?
+        ''', (result_id, g.user['id']), fetch="one")
         
-        logger.info(f"Пользователь {g.user['id']} завершил олимпиаду (результат {result_id})")
-        return jsonify({"message": "Олимпиада завершена"}), 200
+        if not active_attempt:
+            return jsonify({"error": "Нет активной попытки олимпиады"}), 400
+        
+        olympiad_id = active_attempt['olympiad_id']
+        
+        # Получаем все вопросы олимпиады с правильными ответами
+        questions = SQL_request('''
+            SELECT q.id, q.points, q.type,
+                   GROUP_CONCAT(a.id) as correct_answers
+            FROM questions q
+            JOIN olympiad_questions oq ON q.id = oq.question_id
+            LEFT JOIN answers a ON a.question_id = q.id AND a.is_correct = 1
+            WHERE oq.olympiad_id = ?
+            GROUP BY q.id
+        ''', (olympiad_id,), fetch="all")
+        
+        # Рассчитываем максимальный балл
+        total_score = sum(q['points'] for q in questions)
+        
+        # Получаем ответы пользователя
+        user_answers = SQL_request('''
+            SELECT question_id, answer_ids, answer_text
+            FROM user_answers
+            WHERE result_id = ? AND is_olympiad = 1
+        ''', (result_id,), fetch="all")
+        
+        # Подсчет набранных баллов
+        score = 0
+        for question in questions:
+            question_id = question['id']
+            user_answer = next((a for a in user_answers if a['question_id'] == question_id), None)
+            if not user_answer:
+                continue
+
+            if question['type'] == 'text':
+                answer_text = user_answer["answer_text"]
+                correct_answer = SQL_request('''
+                    SELECT content FROM answers 
+                    WHERE question_id = ? AND is_correct = 1
+                ''', (question_id,), fetch="one")
+                if correct_answer:
+                    norm_correct = normalize_string(correct_answer['content'])
+                    norm_user = normalize_string(answer_text)
+                    if norm_correct == norm_user:
+                        score += question['points']
+            
+            elif question['type'] == 'single':
+                correct_id = question['correct_answers']
+                if correct_id and user_answer['answer_ids']:
+                    user_choice = ast.literal_eval(user_answer['answer_ids'])[0]
+                    if int(user_choice) == int(correct_id):
+                        score += question['points']
+            
+            elif question['type'] == 'multiple':
+                correct_ids = [int(x) for x in question['correct_answers'].split(',')] if question['correct_answers'] else []
+                user_ids = ast.literal_eval(user_answer['answer_ids']) if user_answer['answer_ids'] else []
+                if sorted(correct_ids) == sorted(user_ids):
+                    score += question['points']
+
+        # Получаем систему оценивания
+        grading_system = SQL_request('''
+            SELECT grading_system FROM olympiads WHERE id = ?
+        ''', (olympiad_id,), fetch="one")['grading_system']
+        grading_system = json.loads(grading_system) if isinstance(grading_system, str) else grading_system
+        
+        # Определяем оценку
+        percentage = (score / total_score) * 100 if total_score > 0 else 0
+        grade = None
+        print(grading_system)
+        print(percentage)
+        for g_grade, g_percent in sorted(grading_system.items(), key=lambda x: x[1], reverse=True):
+            if percentage >= g_percent:
+                grade = g_grade
+                break
+        print(grade)
+        
+        # Обновляем результат
+        SQL_request('''
+            UPDATE olympiad_results
+            SET end_time = datetime('now'),
+                score = ?,
+                total_score = ?,
+                grade = ?
+            WHERE id = ?
+        ''', (score, total_score, grade, result_id))
+        
+        print(f"Пользователь {g.user['id']} завершил олимпиаду {olympiad_id} с результатом {score}/{total_score}")
+        return jsonify({
+            "message": "Олимпиада завершена",
+            "score": score,
+            "total_score": total_score,
+            "percentage": round(percentage, 2),
+            "grade": grade
+        }), 200
 
     except Exception as e:
         logger.error(f"Ошибка завершения олимпиады: {str(e)}")
