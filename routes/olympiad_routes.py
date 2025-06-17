@@ -33,6 +33,72 @@ def get_olympiads():
         return jsonify({"error": "Внутренняя ошибка сервера"}), 500
 
 
+@api.route('/olympiads/<int:olympiad_id>/questions', methods=['POST'])
+@auth_decorator(role='teacher')
+def add_question_to_olympiad(olympiad_id):
+    try:
+        # Проверяем, что тест существует и принадлежит текущему пользователю
+        olympiad = SQL_request('SELECT creator_id FROM olympiads WHERE id = ?', (olympiad_id,), fetch="one")
+        if not olympiad:
+            return jsonify({"error": "Олимпиада не найден"}), 404
+        
+        if olympiad['creator_id'] != g.user['id'] and g.user['role'] != 'admin':
+            return jsonify({"error": "Вы не можете изменять этот тест"}), 403
+        
+        data = request.form.to_dict()
+        files = request.files
+        
+        # Валидация данных вопроса
+        if not data.get('content') or not data.get('type') or not data.get('points'):
+            return jsonify({"error": "Необходимы содержание, тип и баллы вопроса"}), 400
+        
+        # Обработка изображения вопроса
+        image_id = None
+        if 'image' in files:
+            filename = save_question_image(files['image'])
+            if filename:
+                image_id = SQL_request('''
+                    INSERT INTO images (data, mime_type)
+                    VALUES (?, ?)
+                    RETURNING id
+                ''', (files['image'].read(), files['image'].content_type), fetch='one')["id"]
+        
+        # Создание вопроса
+        question_id = SQL_request('''
+            INSERT INTO questions (content, type, points, image_id)
+            VALUES (?, ?, ?, ?)
+            RETURNING id
+        ''', (
+            data['content'],
+            data['type'],
+            int(data['points']),
+            image_id
+        ), fetch="one")["id"]
+
+        # Добавление вариантов ответов
+        answers = json.loads(data.get('answers', '[]'))
+        for answer in answers:
+            SQL_request('''
+                INSERT INTO answers (question_id, content, is_correct)
+                VALUES (?, ?, ?)
+            ''', (
+                question_id,
+                answer['content'],
+                answer.get('is_correct', False)
+            ))
+        
+        # Связывание вопроса с тестом
+        SQL_request('''
+            INSERT INTO olympiad_questions (olympiad_id, question_id)
+            VALUES (?, ?)
+        ''', (olympiad_id, question_id))
+        
+        logger.info(f"Добавлен вопрос ID {question_id} в олимпиаду {olympiad_id}")
+        return jsonify({"message": "Вопрос добавлен", "question_id": question_id}), 201
+    except Exception as e:
+        logger.error(f"Ошибка добавления вопроса в олимпиаду {olympiad_id}: {str(e)}")
+        return jsonify({"error": "Внутренняя ошибка сервера"}), 500
+
 # Получение олимпиды
 @api.route('/olympiads/<int:olympiad_id>', methods=['GET'])
 @auth_decorator()
