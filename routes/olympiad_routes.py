@@ -122,9 +122,14 @@ def get_olympiad(olympiad_id):
 
         if olympiads is None:
             return jsonify({"error":"Олимпиада не найдена"}), 400
-        # Получаем вопросы олимпиады
+
+
         questions = SQL_request('''
-            SELECT * FROM olympiad_questions WHERE olympiad_id = ?
+            SELECT q.id, q.content, q.type, q.points, q.image_id
+            FROM questions q
+            JOIN olympiad_questions tq ON q.id = tq.question_id
+            WHERE tq.olympiad_id = ?
+            ORDER BY tq.rowid
         ''', (olympiad_id,), fetch="all")
         
         # Для каждого вопроса получаем варианты ответов
@@ -134,7 +139,7 @@ def get_olympiad(olympiad_id):
                 FROM answers
                 WHERE question_id = ?
                 ORDER BY id
-            ''', (question['question_id'],), fetch="all")
+            ''', (question['id'],), fetch="all")
             question['answers'] = answers
         
         olympiads['questions'] = questions
